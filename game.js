@@ -1,6 +1,5 @@
 // ============================================
-// NUMBERFALL GAME - FINAL VERSION
-// WITH PHOTO UPLOAD IN POPUP
+// NUMBERFALL GAME - COMBO WITH 2 SECOND TIMEOUT
 // ============================================
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -11,12 +10,10 @@ const ctx = canvas.getContext('2d');
 const imageInput = document.getElementById('playerImage');
 let playerImage = null;
 
-// FOTOĞRAF BUTONU
 document.getElementById('photoButton').addEventListener('click', () => {
   document.getElementById('playerImage').click();
 });
 
-// Fotoğraf seçildiğinde
 imageInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   const reader = new FileReader();
@@ -60,6 +57,44 @@ class FallingNumber {
   }
 }
 
+// ============================================
+// PARTICLE CLASS - MEGA PARTICLES!
+// ============================================
+class Particle {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 12;
+    this.vy = (Math.random() - 0.5) * 12;
+    this.life = 120;
+    this.maxLife = 120;
+    this.size = Math.random() * 20 + 10;
+    this.colors = ['#FF00FF', '#00FFFF', '#FFD700', '#00FF00', '#FF69B4', '#FF1493', '#00FF7F', '#FF4500'];
+    this.color = this.colors[Math.floor(Math.random() * this.colors.length)];
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.2;
+    this.life -= 1;
+  }
+
+  draw(ctx) {
+    const opacity = this.life / this.maxLife;
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  isDead() {
+    return this.life <= 0;
+  }
+}
+
 const player = {
   x: canvas.width / 2,
   y: canvas.height - 50,
@@ -74,6 +109,9 @@ let score = 0;
 let level = 1;
 let health = 3;
 let gameRunning = false;
+let combo = 0;
+let comboTimer = 0;  // ✅ COMBO TIMEOUT
+let particles = [];
 
 const keys = {};
 window.addEventListener('keydown', (e) => keys[e.key] = true);
@@ -204,13 +242,14 @@ function showLevelPopup() {
   examples.textContent = currentRule.examples;
   avoid.textContent = currentRule.avoid;
   
-  // Fotoğraf statusu sıfırla her level'de
   if (playerImage) {
     photoStatus.textContent = '✅ Fotoğraf seçildi';
   } else {
     photoStatus.textContent = '';
   }
   
+  combo = 0;
+  comboTimer = 0;
   popup.classList.remove('hidden');
   gameRunning = false;
 }
@@ -246,11 +285,27 @@ function checkCollisions() {
       const isCorrect = currentRule.rule(num.number);
       
       if (isCorrect) {
-        score += 10;
-        console.log(`✅ Doğru! +10 puan. Score: ${score}`);
+        combo++;
+        comboTimer = 120;  // ✅ 2 SANIYE TIMEOUT
+        
+        let points = 10;
+        if (combo >= 6) points = 30;
+        else if (combo >= 3) points = 20;
+        
+        score += points;
+        console.log(`✅ Doğru! +${points} puan (Combo: ${combo}). Score: ${score}`);
+        
+        if (combo % 3 === 0) {
+          for (let j = 0; j < 100; j++) {
+            particles.push(new Particle(player.x + player.width/2, player.y + player.height/2));
+          }
+          console.log(`🎉🌈 COMBO ${combo}! MEGA PARTICLES! 🌈🎉`);
+        }
       } else {
+        combo = 0;
+        comboTimer = 0;  // ✅ TIMER SIFIRLA
         health -= 1;
-        console.log(`❌ Yanlış! -1 can. Health: ${health}`);
+        console.log(`❌ Yanlış! Combo sıfırlandı. -1 can. Health: ${health}`);
       }
       
       fallingNumbers.splice(i, 1);
@@ -259,10 +314,13 @@ function checkCollisions() {
   
   if (health <= 0) {
     gameRunning = false;
-    alert(`OYUN BİTTİ!\nFinal Score: ${score}\nLevel: ${level}`);
+    alert(`OYUN BİTTİ!\nFinal Score: ${score}\nLevel: ${level}\nMax Combo: ${combo}`);
     score = 0;
     health = 3;
+    combo = 0;
+    comboTimer = 0;
     fallingNumbers = [];
+    particles = [];
     showLevelPopup();
     return;
   }
@@ -271,6 +329,7 @@ function checkCollisions() {
     level++;
     score = 0;
     fallingNumbers = [];
+    particles = [];
     showLevelPopup();
     console.log(`🎉 LEVEL UP! Seviye: ${level}`);
   }
@@ -278,6 +337,13 @@ function checkCollisions() {
 
 function update() {
   if (!gameRunning) return;
+
+  // ✅ COMBO TIMEOUT - 2 SANIYE (120 FRAME)
+  if (comboTimer > 0) {
+    comboTimer--;
+  } else if (combo > 0) {
+    combo = 0;
+  }
 
   if (keys['ArrowLeft'] || keys['a']) player.x -= 7;
   if (keys['ArrowRight'] || keys['d']) player.x += 7;
@@ -292,9 +358,17 @@ function update() {
   for (let i = fallingNumbers.length - 1; i >= 0; i--) {
     fallingNumbers[i].update();
 
-    if (fallingNumbers[i].isOffScreen()) {
-      console.log(`⏬ Miss! Sayı kaçtı.`);
-      fallingNumbers.splice(i, 1);
+   if (fallingNumbers[i].isOffScreen()) {
+  // Combo sıfırlamıyoruz! Timeout kendiliğinden sıfırlayacak
+  console.log(`⏬ Miss! Sayı kaçtı.`);
+  fallingNumbers.splice(i, 1);
+}
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    particles[i].update();
+    if (particles[i].isDead()) {
+      particles.splice(i, 1);
     }
   }
 
@@ -309,11 +383,14 @@ function draw() {
     number.draw();
   }
 
+  for (let particle of particles) {
+    particle.draw(ctx);
+  }
+
   ctx.font = `${player.width}px serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   
-  // FOTOĞRAF VARSA GÖSTER, YOKSA EMOJİ
   if (playerImage) {
     ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
   } else {
@@ -339,6 +416,16 @@ function draw() {
   ctx.textAlign = 'right';
   const currentRule = levelRules[level - 1];
   ctx.fillText(`🎯 ${currentRule.description}`, canvas.width - 20, 30);
+  
+  if (combo > 0) {
+    ctx.fillStyle = '#FF69B4';
+    ctx.font = 'bold 36px Arial';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#FF69B4';
+    ctx.shadowBlur = 20;
+    ctx.fillText(`🔥 COMBO: ${combo} 🔥`, canvas.width / 2, 50);
+    ctx.shadowBlur = 0;
+  }
   
   ctx.textAlign = 'left';
   ctx.fillStyle = 'white';
