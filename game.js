@@ -1,12 +1,8 @@
-// ============================================
-// NUMBERFALL GAME - COMBO WITH 2 SECOND TIMEOUT
-// ============================================
+ 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// ============================================
-// FOTOĞRAF YÜKLEME SİSTEMİ
-// ============================================
+//fotoğraf yükleme yeri
 const imageInput = document.getElementById('playerImage');
 let playerImage = null;
 
@@ -32,12 +28,12 @@ imageInput.addEventListener('change', (e) => {
 });
 
 class FallingNumber {
-  constructor(x, y, number) {
+  constructor(x, y, number, currentLevel) {
     this.x = x;
     this.y = y;
     this.number = number;
     this.size = 40;
-    this.speed = 3;
+    this.speed = 3 + (currentLevel * 0.5);
   }
 
   update() {
@@ -57,9 +53,6 @@ class FallingNumber {
   }
 }
 
-// ============================================
-// PARTICLE CLASS - MEGA PARTICLES!
-// ============================================
 class Particle {
   constructor(x, y) {
     this.x = x;
@@ -100,8 +93,7 @@ const player = {
   y: canvas.height - 50,
   width: 60,
   height: 60,
-  emoji: '😋',
-  mouthOpen: false
+  emoji: '😋'
 };
 
 let fallingNumbers = [];
@@ -110,11 +102,53 @@ let level = 1;
 let health = 3;
 let gameRunning = false;
 let combo = 0;
-let comboTimer = 0;  // ✅ COMBO TIMEOUT
+let comboTimer = 0;
 let particles = [];
+let isPaused = false;
 
 const keys = {};
-window.addEventListener('keydown', (e) => keys[e.key] = true);
+
+//   PAUSE/RESUME/RESTART + MOVEMENT
+window.addEventListener('keydown', (e) => {
+  // P = PAUSE
+  if (e.key.toLowerCase() === 'p') {
+    if (gameRunning && !isPaused) {
+      gameRunning = false;
+      isPaused = true;
+      updateControlButtons();
+      console.log('⏸ PAUSED (P tuşu)');
+    }
+  }
+  
+  // R  
+  if (e.key.toLowerCase() === 'r') {
+    if (isPaused) {
+      gameRunning = true;
+      isPaused = false;
+      updateControlButtons();
+      console.log('▶ RESUMED (R tuşu)');
+    }
+  }
+  
+  // S  
+  if (e.key.toLowerCase() === 's') {
+    score = 0;
+    level = 1;
+    health = 3;
+    combo = 0;
+    comboTimer = 0;
+    fallingNumbers = [];
+    particles = [];
+    isPaused = false;
+    gameRunning = false;
+    updateControlButtons();
+    showLevelPopup();
+    console.log('🔄 RESTARTED (S tuşu)');
+  }
+  
+  keys[e.key] = true;
+});
+
 window.addEventListener('keyup', (e) => keys[e.key] = false);
 
 const levelRules = [
@@ -159,7 +193,7 @@ const levelRules = [
     name: "DIVISIBLE BY 7",
     rule: (num) => num % 7 === 0 && num !== 0,
     description: "Catch numbers DIVISIBLE BY 7",
-    examples: "7, 14, 21, 28...",
+    examples: "7, 14, 21, 28, 35, 42...",
     avoid: "1, 2, 3, 4, 5, 6, 8, 9...",
     emoji: "⚡"
   },
@@ -186,7 +220,7 @@ const levelRules = [
       return Number.isInteger(sqrt) && num > 0;
     },
     description: "Catch PERFECT SQUARES",
-    examples: "1, 4, 9, 16, 25...",
+    examples: "1, 4, 9, 16, 25, 36, 49, 64, 81...",
     avoid: "2, 3, 5, 6, 7, 8, 10...",
     emoji: "🎪"
   },
@@ -198,7 +232,7 @@ const levelRules = [
       return sum > 10;
     },
     description: "Catch numbers with DIGIT SUM > 10",
-    examples: "19, 28, 29...",
+    examples: "19, 28, 29, 37, 38, 39...",
     avoid: "1-18, 20-27...",
     emoji: "🔥"
   },
@@ -210,16 +244,16 @@ const levelRules = [
       return sum % 2 === 1;
     },
     description: "Catch numbers with ODD DIGIT SUM",
-    examples: "1, 3, 5, 10, 12, 14...",
+    examples: "1, 3, 5, 10, 12, 14, 16, 18...",
     avoid: "2, 4, 6, 8, 9, 11...",
     emoji: "💎"
   },
   {
     level: 10,
     name: "FIBONACCI",
-    rule: (num) => [1, 2, 3, 5, 8, 13, 21].includes(num),
+    rule: (num) => [1, 2, 3, 5, 8, 13, 21, 34, 55, 89].includes(num),
     description: "Catch FIBONACCI numbers",
-    examples: "1, 2, 3, 5, 8, 13, 21...",
+    examples: "1, 2, 3, 5, 8, 13, 21, 34, 55, 89...",
     avoid: "4, 6, 7, 9, 10, 11, 12...",
     emoji: "👑"
   }
@@ -252,23 +286,40 @@ function showLevelPopup() {
   comboTimer = 0;
   popup.classList.remove('hidden');
   gameRunning = false;
+  isPaused = false;
+  updateControlButtons();
 }
 
 function hidePopup() {
   const popup = document.getElementById('levelPopup');
   popup.classList.add('hidden');
   gameRunning = true;
+  isPaused = false;
+  updateControlButtons();
 }
 
 document.getElementById('startButton').addEventListener('click', () => {
   hidePopup();
 });
-
 function spawnNumber() {
   const randomX = Math.random() * (canvas.width - 60);
-  const randomNumber = Math.floor(Math.random() * 30) + 1;
+  const currentRule = levelRules[level - 1];
+  let randomNumber;
   
-  fallingNumbers.push(new FallingNumber(randomX, -50, randomNumber));
+   
+  if (Math.random() < 0.6) {
+    // 60% = Smart spawn (kuralı sağlayan yararlı olan sayılar yani )
+    let attempts = 0;
+    do {
+      randomNumber = Math.floor(Math.random() * 100) + 1;
+      attempts++;
+    } while (!currentRule.rule(randomNumber) && attempts < 10);
+  } else {
+    // 40% = Completely random
+    randomNumber = Math.floor(Math.random() * 100) + 1;
+  }
+  
+  fallingNumbers.push(new FallingNumber(randomX, -50, randomNumber, level));
 }
 
 function checkCollisions() {
@@ -286,7 +337,7 @@ function checkCollisions() {
       
       if (isCorrect) {
         combo++;
-        comboTimer = 120;  // ✅ 2 SANIYE TIMEOUT
+        comboTimer = 120;
         
         let points = 10;
         if (combo >= 6) points = 30;
@@ -303,7 +354,7 @@ function checkCollisions() {
         }
       } else {
         combo = 0;
-        comboTimer = 0;  // ✅ TIMER SIFIRLA
+        comboTimer = 0;
         health -= 1;
         console.log(`❌ Yanlış! Combo sıfırlandı. -1 can. Health: ${health}`);
       }
@@ -314,6 +365,8 @@ function checkCollisions() {
   
   if (health <= 0) {
     gameRunning = false;
+    isPaused = false;
+    updateControlButtons();
     alert(`OYUN BİTTİ!\nFinal Score: ${score}\nLevel: ${level}\nMax Combo: ${combo}`);
     score = 0;
     health = 3;
@@ -338,7 +391,6 @@ function checkCollisions() {
 function update() {
   if (!gameRunning) return;
 
-  // ✅ COMBO TIMEOUT - 2 SANIYE (120 FRAME)
   if (comboTimer > 0) {
     comboTimer--;
   } else if (combo > 0) {
@@ -358,11 +410,10 @@ function update() {
   for (let i = fallingNumbers.length - 1; i >= 0; i--) {
     fallingNumbers[i].update();
 
-   if (fallingNumbers[i].isOffScreen()) {
-  // Combo sıfırlamıyoruz! Timeout kendiliğinden sıfırlayacak
-  console.log(`⏬ Miss! Sayı kaçtı.`);
-  fallingNumbers.splice(i, 1);
-}
+    if (fallingNumbers[i].isOffScreen()) {
+      console.log(`⏬ Miss! Sayı kaçtı.`);
+      fallingNumbers.splice(i, 1);
+    }
   }
 
   for (let i = particles.length - 1; i >= 0; i--) {
@@ -427,8 +478,39 @@ function draw() {
     ctx.shadowBlur = 0;
   }
   
+  if (isPaused) {
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#FF6B6B';
+    ctx.font = 'bold 64px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+    ctx.font = '20px Arial';
+    ctx.fillText('Press R to Resume', canvas.width / 2, canvas.height / 2 + 60);
+  }
+  
   ctx.textAlign = 'left';
   ctx.fillStyle = 'white';
+}
+
+function updateControlButtons() {
+  const pauseBtn = document.getElementById('pauseButton');
+  const resumeBtn = document.getElementById('resumeButton');
+  const restartBtn = document.getElementById('restartButton');
+  
+  if (gameRunning && !isPaused) {
+    pauseBtn.classList.remove('hidden');
+    resumeBtn.classList.add('hidden');
+    restartBtn.classList.add('hidden');
+  } else if (isPaused) {
+    pauseBtn.classList.add('hidden');
+    resumeBtn.classList.remove('hidden');
+    restartBtn.classList.remove('hidden');
+  } else {
+    pauseBtn.classList.add('hidden');
+    resumeBtn.classList.add('hidden');
+    restartBtn.classList.add('hidden');
+  }
 }
 
 function gameLoop() {
@@ -436,6 +518,40 @@ function gameLoop() {
   draw();
   requestAnimationFrame(gameLoop);
 }
+// ✅ PAUSE BUTTON CLICK
+document.getElementById('pauseButton').addEventListener('click', () => {
+  if (gameRunning && !isPaused) {
+    gameRunning = false;
+    isPaused = true;
+    updateControlButtons();
+    console.log('⏸ PAUSED (Button)');
+  }
+});
+ 
+document.getElementById('resumeButton').addEventListener('click', () => {
+  if (isPaused) {
+    gameRunning = true;
+    isPaused = false;
+    updateControlButtons();
+    console.log('▶ RESUMED (Button)');
+  }
+});
+ 
+document.getElementById('restartButton').addEventListener('click', () => {
+  score = 0;
+  level = 1;
+  health = 3;
+  combo = 0;
+  comboTimer = 0;
+  fallingNumbers = [];
+  particles = [];
+  isPaused = false;
+  gameRunning = false;
+  updateControlButtons();
+  showLevelPopup();
+  console.log('🔄 RESTARTED (Button)');
+});
+
 
 gameLoop();
 showLevelPopup();
