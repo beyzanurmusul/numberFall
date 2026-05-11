@@ -20,9 +20,10 @@
       border: 3px solid #16c784;
       background: #0f3460;
       display: block;
+      position: relative;
+      z-index: 0;
     }
     
-    /* POPUP STİLİ */
     .popup {
       position: fixed;
       top: 0;
@@ -90,7 +91,6 @@
       display: none;
     }
     
-    /* ✅ POPUP İÇİ STYLE'LARI */
     .photo-section {
       margin: 20px 0;
       border-top: 1px solid #16c784;
@@ -123,16 +123,61 @@
       color: #16c784;
       margin-top: 10px;
     }
+    
+    
+    #controlButtons {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      pointer-events: auto;
+    }
+    
+    .control-btn {
+      background: #16c784;
+      color: black;
+      border: 2px solid #16c784;
+      padding: 10px 20px;
+      font-size: 1em;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-left: 10px;
+      transition: 0.3s;
+    }
+    
+    .control-btn:hover {
+      background: #00FF88;
+      box-shadow: 0 0 15px rgba(22, 199, 132, 0.8);
+    }
+    
+    .control-btn.hidden {
+      display: none;
+    }
+    
+    .restart-btn {
+      background: #ff6b6b;
+      border: 2px solid #ff6b6b;
+    }
+    
+    .restart-btn:hover {
+      background: #ff5252;
+      box-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+    }
   </style>
 </head>
 <body>
+   
+  <div id="controlButtons">
+    <button id="pauseButton" class="control-btn">⏸ PAUSE</button>
+    <button id="resumeButton" class="control-btn hidden">▶ RESUME</button>
+    <button id="restartButton" class="control-btn restart-btn hidden">🔄 RESTART</button>
+  </div>
+  
   <canvas id="gameCanvas" width="800" height="600"></canvas>
   
-
-  <!-- ✅ INPUT ELEMENT (HIDDEN) -->
   <input type="file" id="playerImage" accept="image/*">
-
-  <!-- Level Info Popup -->
+  
   <div id="levelPopup" class="popup">
     <div class="popup-content">
       <h2 id="popupTitle">Level 1</h2>
@@ -144,7 +189,6 @@
         ❌ Avoid: <span id="popupAvoid">2, 4, 6, 8...</span>
       </p>
       
-      <!-- ✅ PHOTO SECTION (CLASS'LA) -->
       <div class="photo-section">
         <label class="photo-label">Oyuncu Fotoğrafı Seç:</label>
         <button id="photoButton" class="start-btn photo-button">
@@ -160,3 +204,4 @@
   <script src="game.js"></script>
 </body>
 </html>
+ 
